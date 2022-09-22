@@ -1,3 +1,4 @@
+from knox.auth import AuthToken
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
@@ -59,3 +60,34 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         # fields = "__all__"
         exclude = ["password"]
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """
+        User Serializer
+    """
+    class Meta(object):
+        """
+            Meta
+        """
+        model = User
+        fields = "__all__"
+
+
+class MobileSerializer(serializers.Serializer):
+    """
+        Mobile Serializer
+    """
+    mobile = serializers.CharField(required=True)
+
+
+class TokenSerializer(serializers.ModelSerializer):
+    """
+        Token Serializer
+    """
+    class Meta(object):
+        """
+            Meta
+        """
+        model = AuthToken
+        fields = ["digest", ]

@@ -1,3 +1,5 @@
+from base64 import urlsafe_b64encode
+
 from knox.auth import AuthToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -93,3 +95,136 @@ class UserProfile(APIView):
             {"response": "You Must Be Authenticated!"},
             status=status.HTTP_401_UNAUTHORIZED
         )
+
+
+# OTP
+class Mobile(object):
+    """
+        Mobile Number
+    """
+
+    def __init__(self, mobile: str):
+        """
+            docstring
+        """
+        self.mobile = mobile
+
+
+class Operator(object):
+    """
+        Operator
+    """
+    pass
+
+
+class SendOTP(APIView):
+    """
+        Send OTP
+    """
+
+    def post(self, request):
+        """
+            Send OTP GET Method
+        """
+        serialized_data = serializers.MobileSerializer(data=request.data)
+        serialized_data.is_valid(raise_exception=True)
+        username = serialized_data.validated_data["username"]
+
+
+# Change Password
+class UserChangePassword(APIView):
+    """
+        Change User Password
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_user_object(self, user_id: str):
+        """
+            Get User Object
+        """
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None
+
+    def put(self, request):
+        """
+            Change User Password POST Request
+        """
+        user = request.user
+        if user.is_authenticated:
+            user_id = user.id or 0
+            db_user = self.get_user_object(user_id=user_id)
+            if db_user:
+                serialized_data = serializers.UserSerializer(
+                    instance=db_user
+                )
+                validated_data = serialized_data.validated_data
+                # url
+
+                return Response(serialized_data.data, status=status.HTTP_200_OK)
+
+            return Response(
+                {"response": "Token is Invalid!"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(
+            {"response": "You Must Be Authenticated!"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+
+# Users's Tokens
+class UserTokens(APIView):
+    """
+        Tokens
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_user_object(self, user_id: str):
+        """
+            Get User Object
+        """
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None
+
+    def get_tokens(self, user_id: str):
+        """
+            Get
+        """
+        try:
+            return AuthToken.objects.all().filter(user=user_id)
+        except:
+            return None
+
+    def post(self, request):
+        """
+            Retrieve List of User's Token
+        """
+        user = request.user
+        if user.is_authenticated:
+            # user_id = user.username
+            user_id = user.id
+            print("USER ID", user_id)
+            db_tokens = self.get_user_object(user_id=user_id)
+            if db_tokens:
+                tokens_db = self.get_tokens(user_id)
+                serialized_tokens = serializers.TokenSerializer(
+                    instance=tokens_db,
+                    many=True
+                )
+                tokens = [
+                    token["digest"]
+                    for token in serialized_tokens.data
+                ]
+                response = {
+                    "user_id": user_id,
+                    "username": user.username,
+                    "tokens": tokens
+                }
+                return Response(response)
+
+            return Response({})
