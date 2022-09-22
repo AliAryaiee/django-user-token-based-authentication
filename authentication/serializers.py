@@ -40,7 +40,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         if data["password"] != data["confirm_password"]:
             raise serializers.ValidationError("Passwords Aren't Matched!")
         return data
-    
+
     def create(self, validated_data: dict):
         """
             Overriding Create User Method
@@ -48,13 +48,14 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return User.objects.create_user(**validated_data)
 
 
-class AuthResponse(serializers.ModelSerializer):
+class UserProfileSerializer(serializers.ModelSerializer):
     """
-        Token Response Serializer
+        User Profile Serializer
     """
     class Meta(object):
         """
             Meta
         """
         model = User
+        # fields = "__all__"
         exclude = ["password"]
