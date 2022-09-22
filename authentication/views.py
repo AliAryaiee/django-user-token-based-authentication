@@ -107,14 +107,46 @@ class Mobile(object):
         """
             docstring
         """
-        self.mobile = mobile
+        self.number = mobile
 
 
 class Operator(object):
     """
         Operator
     """
-    pass
+
+    MTN = ["093", "090"]
+    MCI = ["091", "099"]
+
+    def set_operator(self, mobile: Mobile):
+        """
+            docstring
+        """
+        operator = self._get_operator_(mobile)
+        return operator(mobile)
+
+    def _get_operator_(self, mobile: Mobile):
+        """
+            docstring
+        """
+        if mobile.number[:3] in self.MTN:
+            return self.set_mtn
+        if mobile.number[:3] in self.MCI:
+            return self.set_mci
+
+    def set_mtn(self, mobile: Mobile):
+        """
+            docstring
+        """
+        mobile.operator = "MTN"
+        print(f"Mobile {mobile.number} Is Belong to MTN")
+
+    def set_mci(self, mobile: Mobile):
+        """
+            docstring
+        """
+        mobile.operator = "MCI"
+        print(f"Mobile {mobile.number} Is Belong to MCI")
 
 
 class SendOTP(APIView):
@@ -124,11 +156,53 @@ class SendOTP(APIView):
 
     def post(self, request):
         """
-            Send OTP GET Method
+            Send OTP POST Method
         """
         serialized_data = serializers.MobileSerializer(data=request.data)
         serialized_data.is_valid(raise_exception=True)
-        username = serialized_data.validated_data["username"]
+        mobile_number = serialized_data.validated_data["mobile"]
+        mobile = Mobile(mobile_number)
+        operator = Operator()
+        operator.set_operator(mobile)
+        return Response({})
+
+
+class ConfirmOTP(APIView):
+    """
+        Confirm OTP
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_user_object(self, user_id: str):
+        """
+            Get User Object
+        """
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None
+
+    def post(self, request):
+        """
+            Send OTP POST Method
+        """
+        otp_code = request.query_params["otp-code"]
+        user = request.user
+        if user.is_authenticated:
+            user_id = user.id or 0
+            db_user = self.get_user_object(user_id=user_id)
+            if db_user:
+                serialized_data = serializers.UserProfileSerializer(
+                    instance=db_user
+                )
+
+                mobile = Mobile(serialized_data.data["phone"])
+                operator = Operator()
+                operator.set_operator(mobile)
+                print(f"OTP {otp_code} <=> {mobile.number}")
+                return Response({}, status=status.HTTP_200_OK)
+
+        return Response({}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # Change Password

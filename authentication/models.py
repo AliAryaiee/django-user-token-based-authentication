@@ -46,7 +46,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         User Account
     """
     username = models.CharField(max_length=256, unique=True)
-    phone = models.CharField(max_length=256)
+    phone = models.CharField(max_length=256, unique=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
