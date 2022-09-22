@@ -34,6 +34,7 @@ class UserManager(BaseUserManager):
             phone,
             password
         )
+        user.is_active = True
         user.is_staff = True
         user.is_superuser = True
         user.save(using=self._db)
@@ -44,7 +45,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
         User Account
     """
-    username = models.CharField(max_length=256)
+    username = models.CharField(max_length=256, unique=True)
     phone = models.CharField(max_length=256)
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
