@@ -11,10 +11,12 @@ def mobile_validator(mobile: str):
     """
     if len(mobile) != 11:
         raise serializers.ValidationError(
-            "The Mobile Number Must Contain Exact 11 Digits!")
+            "The Mobile Number Must Contain Exact 11 Digits!"
+        )
     if not mobile.startswith("09"):
         raise serializers.ValidationError(
-            "The Mobile Number Must Be Like 09xxxxxxxxx!")
+            "The Mobile Number Must Be Like 09xxxxxxxxx!"
+        )
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -79,6 +81,45 @@ class MobileSerializer(serializers.Serializer):
         Mobile Serializer
     """
     mobile = serializers.CharField(required=True)
+
+
+def old_password_validator(db_user, old_password: str):
+    """
+        Validate Old Password
+    """
+    is_matched = db_user.check_password(old_password)
+    if not is_matched:
+        raise serializers.ValidationError("Passwords Aren't Matched!")
+
+
+class ChangePasswordSerializer(serializers.ModelSerializer):
+    """
+        Change Password Serializer
+    """
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    new_password_confirm = serializers.CharField(
+        required=True,
+        write_only=True
+    )
+
+    class Meta(object):
+        """
+            Meta
+        """
+        model = User
+        fields = ["old_password", "new_password", "new_password_confirm"]
+        extra_kwargs = {
+            "old_password": {"validators": (old_password_validator,)},
+        }
+
+    def validate(self, data):
+        """
+            Data Validations
+        """
+        if data["new_password"] != data["new_password_confirm"]:
+            raise serializers.ValidationError("Passwords Aren't Matched!")
+        return data
 
 
 class TokenSerializer(serializers.ModelSerializer):

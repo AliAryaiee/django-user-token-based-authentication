@@ -164,7 +164,7 @@ class SendOTP(APIView):
         mobile = Mobile(mobile_number)
         operator = Operator()
         operator.set_operator(mobile)
-        return Response({})
+        return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 
 class ConfirmOTP(APIView):
@@ -200,7 +200,7 @@ class ConfirmOTP(APIView):
                 operator = Operator()
                 operator.set_operator(mobile)
                 print(f"OTP {otp_code} <=> {mobile.number}")
-                return Response({}, status=status.HTTP_200_OK)
+                return Response({}, status=status.HTTP_204_NO_CONTENT)
 
         return Response({}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -230,23 +230,26 @@ class UserChangePassword(APIView):
             user_id = user.id or 0
             db_user = self.get_user_object(user_id=user_id)
             if db_user:
-                serialized_data = serializers.UserSerializer(
-                    instance=db_user
+                serialized_data = serializers.ChangePasswordSerializer(
+                    data=request.data
                 )
-                validated_data = serialized_data.validated_data
-                # url
+                serialized_data.is_valid(raise_exception=True)
+                old_password = serialized_data.validated_data["old_password"]
+                is_matched = db_user.check_password(old_password)
+                if is_matched:
+                    # 1 - Set New Password
+                    new_password = serialized_data.validated_data["new_password"]
+                    db_user.set_password(new_password)
+                    db_user.save()
 
-                return Response(serialized_data.data, status=status.HTTP_200_OK)
+                    # 2 - Return Token
+                    _, token = AuthToken.objects.create(db_user)
+                    return Response({"token": token}, status=status.HTTP_200_OK)
 
-            return Response(
-                {"response": "Token is Invalid!"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        return Response(
-            {"response": "You Must Be Authenticated!"},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
+                bad_response = {
+                    "response": "Old Password Is Not Matched!"
+                }
+                return Response(bad_response, status=status.HTTP_400_BAD_REQUEST)
 
 
 # Users's Tokens
