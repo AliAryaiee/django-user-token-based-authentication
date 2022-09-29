@@ -64,3 +64,5 @@ class OTP(models.Model):
         OTP
     """
     otp_code = models.CharField(max_length=4)
+    phone = models.CharField(max_length=11)
+    expiry = models.IntegerField()

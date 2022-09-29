@@ -2,6 +2,8 @@ from knox.auth import AuthToken
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
+from .models import OTP
+
 User = get_user_model()
 
 
@@ -80,7 +82,22 @@ class MobileSerializer(serializers.Serializer):
     """
         Mobile Serializer
     """
-    mobile = serializers.CharField(required=True)
+    phone = serializers.CharField(required=True)
+
+
+class OTPSerializer(serializers.ModelSerializer):
+    """
+        Mobile Serializer
+    """
+    class Meta(object):
+        """
+            Meta
+        """
+        model = OTP
+        fields = "__all__"
+        extra_kwargs = {
+            "phone": {"validators": (mobile_validator,)},
+        }
 
 
 def old_password_validator(db_user, old_password: str):

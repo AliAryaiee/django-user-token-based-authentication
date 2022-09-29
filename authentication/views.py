@@ -1,3 +1,6 @@
+import time
+from datetime import timedelta
+
 from knox.auth import AuthToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -5,7 +8,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import exceptions, permissions, status
 from rest_framework.authtoken.serializers import AuthTokenSerializer
 
-from . import serializers
+from . import serializers, models
+from .utils import send_otp_client
 
 
 User = get_user_model()
@@ -111,73 +115,43 @@ class UserProfile(APIView):
 
 
 # OTP
-class Mobile(object):
-    """
-        Mobile Number
-    """
-
-    def __init__(self, mobile: str):
-        """
-            docstring
-        """
-        self.number = mobile
-
-
-class Operator(object):
-    """
-        Operator
-    """
-
-    MTN = ["093", "090"]
-    MCI = ["091", "099"]
-
-    def set_operator(self, mobile: Mobile):
-        """
-            docstring
-        """
-        operator = self._get_operator_(mobile)
-        return operator(mobile)
-
-    def _get_operator_(self, mobile: Mobile):
-        """
-            docstring
-        """
-        if mobile.number[:3] in self.MTN:
-            return self.set_mtn
-        if mobile.number[:3] in self.MCI:
-            return self.set_mci
-
-    def set_mtn(self, mobile: Mobile):
-        """
-            docstring
-        """
-        mobile.operator = "MTN"
-        print(f"Mobile {mobile.number} Is Belong to MTN")
-
-    def set_mci(self, mobile: Mobile):
-        """
-            docstring
-        """
-        mobile.operator = "MCI"
-        print(f"Mobile {mobile.number} Is Belong to MCI")
-
-
 class SendOTP(APIView):
     """
         Send OTP
     """
 
+    def get_user_object(self, mobile: str):
+        """
+            Get User Object
+        """
+        try:
+            return User.objects.get(phone=mobile)
+        except User.DoesNotExist:
+            return None
+
     def post(self, request):
         """
             Send OTP POST Method
         """
-        serialized_data = serializers.MobileSerializer(data=request.data)
-        serialized_data.is_valid(raise_exception=True)
-        mobile_number = serialized_data.validated_data["mobile"]
-        mobile = Mobile(mobile_number)
-        operator = Operator()
-        operator.set_operator(mobile)
-        return Response({}, status=status.HTTP_204_NO_CONTENT)
+        serialized_mobile = serializers.MobileSerializer(data=request.data)
+        serialized_mobile.is_valid(raise_exception=True)
+        mobile_number = serialized_mobile.validated_data["phone"]
+        if self.get_user_object(mobile_number):
+            msg, otp_code = send_otp_client(mobile_number)
+            print(msg)
+            issued_at = int(time.time())
+            expiry = timedelta(minutes=4)
+            otp_data = {
+                "otp_code": otp_code,
+                "phone": mobile_number,
+                "expiry": issued_at + int(expiry.total_seconds()),
+            }
+            serialized_otp = serializers.OTPSerializer(data=otp_data)
+            serialized_otp.is_valid(raise_exception=True)
+            serialized_otp.save()
+            # return Response({"message": otp_code}, status=status.HTTP_202_ACCEPTED)
+            return Response(serialized_otp.data, status=status.HTTP_202_ACCEPTED)
+        return Response({}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ConfirmOTP(APIView):
@@ -195,25 +169,40 @@ class ConfirmOTP(APIView):
         except User.DoesNotExist:
             return None
 
+    def get_otp_object(self, otp_code: str):
+        """
+            Get User Object
+        """
+        try:
+            return models.OTP.objects.get(otp_code=otp_code)
+        except models.OTP.DoesNotExist:
+            return None
+
     def post(self, request):
         """
             Send OTP POST Method
         """
         otp_code = request.query_params["otp-code"]
-        user = request.user
-        if user.is_authenticated:
-            user_id = user.id or 0
-            db_user = self.get_user_object(user_id=user_id)
+        db_otp = self.get_otp_object(otp_code)
+        issued_at = int(time.time())
+        if db_otp:
+            # print(f"OTP Query => {otp_code}")
+            otp_object = serializers.OTPSerializer(instance=db_otp)
+            # otp_object.is_valid(raise_exception=True)
+            validated_otp = otp_object.data
+            expiry = validated_otp["expiry"]
+            if expiry < issued_at:
+                print(expiry, issued_at)
+                return Response({}, status=status.HTTP_404_NOT_FOUND)
+            mobile = validated_otp["phone"]
+            db_user = self.get_user_object(user_id=request.user.id)
             if db_user:
                 serialized_data = serializers.UserProfileSerializer(
                     instance=db_user
                 )
-
-                mobile = Mobile(serialized_data.data["phone"])
-                operator = Operator()
-                operator.set_operator(mobile)
-                print(f"OTP {otp_code} <=> {mobile.number}")
-                return Response({}, status=status.HTTP_204_NO_CONTENT)
+                user_phone_number = serialized_data.data["phone"]
+                if mobile == user_phone_number:
+                    return Response(validated_otp, status=status.HTTP_202_ACCEPTED)
 
         return Response({}, status=status.HTTP_400_BAD_REQUEST)
 
