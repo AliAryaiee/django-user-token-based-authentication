@@ -1,5 +1,3 @@
-from base64 import urlsafe_b64encode
-
 from knox.auth import AuthToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -18,17 +16,32 @@ class UserRegister(APIView):
         User Register
     """
 
-    # serializer_class = serializers.UserRegisterSerializer
+    def get_user_object(self, mobile: str):
+        """
+            Get User Object
+        """
+        try:
+            return User.objects.get(phone=mobile)
+        except User.DoesNotExist:
+            return None
 
     def post(self, request):
         """
             Create New User by POST Request
         """
+        # 0 - Check the User Exists in Database
+        if self.get_user_object(request.data.get("phone")):
+            response = {
+                "response": f"{request.data.get('phone')} Already Exists in Database!"
+            }
+            return Response(response, status=status.HTTP_400_BAD_REQUEST)
+
         serialized_user = serializers.UserRegisterSerializer(data=request.data)
 
         if serialized_user.is_valid(raise_exception=True):
-            # 1 - Create User and Save It Into the Database
             validated_data = serialized_user.validated_data
+
+            # 1 - Create User and Save It Into the Database
             del validated_data["confirm_password"]
             db_user = serialized_user.save()
 
@@ -250,6 +263,18 @@ class UserChangePassword(APIView):
                     "response": "Old Password Is Not Matched!"
                 }
                 return Response(bad_response, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForgotPassword(APIView):
+    """
+        Forgot Password
+    """
+
+    def put(self, request):
+        """
+            docstring
+        """
+        return Response(request.data, status=status.HTTP_200_OK)
 
 
 # Users's Tokens

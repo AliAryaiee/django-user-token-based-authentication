@@ -57,3 +57,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.username
+
+
+class OTP(models.Model):
+    """
+        OTP
+    """
+    otp_code = models.CharField(max_length=4)

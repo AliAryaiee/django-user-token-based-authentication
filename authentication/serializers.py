@@ -122,6 +122,20 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
         return data
 
 
+class ForgotPasswordSerializer(ChangePasswordSerializer):
+    """
+        Forgot Password Serializer
+    """
+    otp_code = serializers.CharField(required=True)
+
+    class Meta(object):
+        """
+            Meta
+        """
+        model = User
+        fields = ["otp_code", "new_password", "new_password_confirm"]
+
+
 class TokenSerializer(serializers.ModelSerializer):
     """
         Token Serializer
